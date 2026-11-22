@@ -23,14 +23,17 @@
 # Function to detect Ubuntu version and full version string
 get_ubuntu_version() {
     VERSION_ID=$(grep "^VERSION_ID" /etc/os-release | cut -d '"' -f 2)
-    FULL_VERSION=$(lsb_release -d | grep -oP '\d+\.\d+\.\d+')
-    echo "Detected Ubuntu Version: $FULL_VERSION"
+    FULL_VERSION=$(lsb_release -d 2>/dev/null | grep -oP '\d+\.\d+(\.\d+)?' | head -n 1)
+    if [[ -z "$FULL_VERSION" ]]; then
+        FULL_VERSION=$(grep "^VERSION=" /etc/os-release | cut -d '"' -f 2)
+    fi
+    echo "Detected Ubuntu Version: ${FULL_VERSION:-$VERSION_ID}"
 }
 
 # Function to choose and run the appropriate script
 run_version_script() {
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/install-eSim-scripts"
-    
+
     # Decide script based on full version
     case $VERSION_ID in
         "22.04")
@@ -46,7 +49,7 @@ run_version_script() {
         "24.04")
             SCRIPT="$SCRIPT_DIR/install-eSim-24.04.sh"
             ;;
-        "25.04")
+        "25.04" | "26.04")
             SCRIPT="$SCRIPT_DIR/install-eSim-25.04.sh"
             ;;
         *)
@@ -59,16 +62,11 @@ run_version_script() {
     if [[ -f "$SCRIPT" ]]; then
         echo "Running script: $SCRIPT $ARGUMENT"
         bash "$SCRIPT" "$ARGUMENT"
-    echo "[eSim]" >> $config_dir/$config_file
-    echo "eSim_HOME = $eSim_Home" >> $config_dir/$config_file
-    echo "LICENSE = %(eSim_HOME)s/LICENSE" >> $config_dir/$config_file
-    echo "KicadLib = %(eSim_HOME)s/library/kicadLibrary.tar.xz" >> $config_dir/$config_file
-    echo "IMAGES = %(eSim_HOME)s/images" >> $config_dir/$config_file
-    echo "VERSION = %(eSim_HOME)s/VERSION" >> $config_dir/$config_file
-    echo "MODELICA_MAP_JSON = %(eSim_HOME)s/library/ngspicetoModelica/Mapping.json" >> $config_dir/$config_file
-   
+    else
+        echo "Installer script not found: $SCRIPT"
+        exit 1
+    fi
 }
-
 
 function installNghdl
 {
